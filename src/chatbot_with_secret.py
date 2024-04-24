@@ -1,62 +1,83 @@
-# chat_bot.py
-
 import telegram
 from telegram import Update
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler
 from telegram.ext import MessageHandler, filters
 import openai
-import time
-import os
+import time, logging, os
 import tiktoken
+import pprint
 
 
-# CHAT_ID = '1207102485'
-debug_to_chat = False
+debug_to_chat = False  # set to True to send debug messages to the chat, False to suppress them from the chat
+default_gpt_model = 'gpt-4-turbo'
+temperature = 0.5
 
-# API token
-file = 'ogauto3bot'
-dir = '/home/og/src/system_stuff/'
-# dir = 'C:/Users/Ohad/python/'
-with open(dir+file) as file:
+# system_message = {
+#         'role': 'system',
+#         'content': 
+#             'You are a helpful assitant in a Telegram chat, speaking both English and Hebrew. ' + 
+#             'Here is information you can provide to users about yourself: ' + 
+#             'The chat platform remembers all the messages in the chat until a restart command is provided by the user. ' + 
+#             'For the restart command, the user needs to type: /restart or /start. ' + 
+#             'Deleting the messages can be done with the restart command, which deletes the entire chat. '
+#             'The chat retains the messeges until restarted, but they are not stored anywhere. ' + 
+#             'This means that the user should copy and save valuable conversations, otherwise they will be lost eventually. ' + 
+#             'The chat is created by Ohad Gertel (אוהד גרטל). He does not keep or see any of the messages, but he could, theoretically. Therefore, the chat is not 100% private. ' + 
+#             "The chat is considered private as long as you trust the chat's creator, just like any other online service. " + 
+#             "No other user can see the messages in the chat. They are only visible to the user's Telegram number. " +
+#             'You are based on the GPT4 large language model. You are running at a temperature of ' + str(temperature) + '. '
+#     }
+
+
+
+
+### Get Telegram API token from file - file telegram_api_token in subdirectory files
+telegram_api_token_file = './files/telegram_api_token'
+# get path to directory of current script and join with file name
+dir_path = os.path.dirname(os.path.realpath(__file__))
+telegram_api_token_file = os.path.join(dir_path, telegram_api_token_file)
+# read the token from the file
+with open(telegram_api_token_file) as file:
     API_TOKEN = file.readline()
-print('chat bot token: '+API_TOKEN)
 
-# OpenAI API key
-file = 'openai_key'
-dir = '/home/og/src/system_stuff/'
-with open(dir+file) as file:
+### Get OpenAI API key from file - file openai_api_key in subdirectory files
+openai_api_key_file = './files/openai_api_key'
+# get path to directory of current script and join with file name
+openai_api_key_file = os.path.join(dir_path, openai_api_key_file)
+# read the key from the file
+with open(openai_api_key_file) as file:
     OPENAI_KEY = file.readline()
-print('openai key: ',OPENAI_KEY)
 
 # put OPENAI_KEY into an environment variable OPENAI_API_KEY
 os.environ['OPENAI_API_KEY'] = OPENAI_KEY
 
-# gpt_model = 'gpt-4-1106-preview'
-# gpt4v_model = 'gpt-4-vision-preview'
-gpt_model = 'gpt-4-turbo'
-gpt4v_model = 'gpt-4-turbo'
-# gpt_model = 'gpt-3.5-turbo'
-temperature = 0.5
-chats = {}
+### Get system prompt from file - file system_prompt in subdirectory files
+system_prompt_file = './files/system_prompt'
+# get path to directory of current script and join with file name
+system_prompt_file = os.path.join(dir_path, system_prompt_file)
+# check if the file exists
+if not os.path.exists(system_prompt_file):
+    system_message = 'You are a helpful assitant in a Telegram chat.'
+else:
+    # read the prompt string from the file, using utf-8 encoding
+    with open(system_prompt_file, encoding='utf-8') as file:
+        system_message = file.read()
+        if 'TEMPERATURE_VAL' in system_message:
+            system_message = system_message.replace('TEMPERATURE_VAL', str(temperature))
+        system_message = system_message.replace('\n', '')
 
-client = openai.OpenAI()
 
-
+# convert the system message into a compatible dict
 system_message = {
         'role': 'system',
-        'content': 
-            'You are a helpful assitant in a Telegram chat, speaking both English and Hebrew. ' + 
-            'Here is information you can provide to users about yourself: ' + 
-            'The chat platform remembers all the messages in the chat until a restart command is provided by the user. ' + 
-            'For the restart command, the user needs to type: /restart or /start. ' + 
-            'Deleting the messages can be done with the restart command, which deletes the entire chat. '
-            'The chat retains the messeges until restarted, but they are not stored anywhere. ' + 
-            'This means that the user should copy and save valuable conversations, otherwise they will be lost eventually. ' + 
-            'The chat is created by Ohad Gertel (אוהד גרטל). He does not keep or see any of the messages, but he could, theoretically. Therefore, the chat is not 100% private. ' + 
-            "The chat is considered private as long as you trust the chat's creator, just like any other online service. " + 
-            "No other user can see the messages in the chat. They are only visible to the user's Telegram number. " +
-            'You are based on the GPT4 large language model. You are running at a temperature of ' + str(temperature) + '. '
+        'content': system_message
     }
+
+
+
+### Initialize OpenAI client and chats dict
+chats = {}
+client = openai.OpenAI()
 
 def main():
     application = ApplicationBuilder().token(API_TOKEN).build()
@@ -164,7 +185,7 @@ async def image_function(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # chats.update({chat_id: [message_to_append]})
     # message_list.append(message_to_append)
     try:
-        tokens = num_tokens_from_messages(chats[user_id], gpt_model)
+        tokens = num_tokens_from_messages(chats[user_id], default_gpt_model)
         print(f'Chat id: {user_id} Chat length: {len(chats[user_id])}, Tokens: {tokens}')
     except Exception as e:
         print('error getting tokens: ',e)
@@ -179,7 +200,7 @@ async def image_function(update: Update, context: ContextTypes.DEFAULT_TYPE):
     while True:
         try:
             gpt_response = client.chat.completions.create(
-                model=gpt4v_model,
+                model=default_gpt_model,
                 messages=chats[user_id],
                 # n=1,
                 # temperature = temperature,
@@ -198,8 +219,7 @@ async def image_function(update: Update, context: ContextTypes.DEFAULT_TYPE):
             time.sleep(time_to_wait)
             time_to_wait = time_to_wait*2
         except openai.APIError as e:
-            print(e.message)
-            print('API timeout error, trying again')
+            print(f'API error: {e}, trying again')
             if debug_to_chat:
                 await context.bot.send_message(chat_id=update.effective_chat.id, text='API timeout error, trying again')
             time.sleep(time_to_wait)
@@ -256,24 +276,22 @@ async def file_function(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chats.update({user_id: [system_message]})
     chats[user_id].append(message_to_append)
 
-        # chats.update({chat_id: [message_to_append]})
-    # message_list.append(message_to_append)
-    try:
-        tokens = num_tokens_from_messages(chats[user_id], gpt_model)
-        print(f'Chat id: {user_id} Chat length: {len(chats[user_id])}, Tokens: {tokens}')
-    except Exception as e:
-        print('error getting tokens: ',e)
-        tokens = 0
-    if debug_to_chat:
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=f'Got Message! Chat length: {len(chats[user_id])}, Tokens: {tokens}')
-    if tokens>50000:
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=f'Warning, close to max tokens. Tokens: {tokens}')
+    # try:
+        # tokens = num_tokens_from_messages(chats[user_id], default_gpt_model)
+        # print(f'Chat id: {user_id} Chat length: {len(chats[user_id])}, Tokens: {tokens}')
+    # except Exception as e:
+    #     print('error getting tokens: ',e)
+    #     tokens = 0
+    # if debug_to_chat:
+    #     await context.bot.send_message(chat_id=update.effective_chat.id, text=f'Got Message! Chat length: {len(chats[user_id])}, Tokens: {tokens}')
+    # if tokens>50000:
+    #     await context.bot.send_message(chat_id=update.effective_chat.id, text=f'Warning, close to max tokens. Tokens: {tokens}')
 
     gpt_response = ''
     time_to_wait = 1
     while True:
         try:
-            gpt_response = client.chat.completions.create(model=gpt_model,messages=chats[user_id],n=1,temperature = temperature,stream = False)
+            gpt_response = client.chat.completions.create(model=default_gpt_model,messages=chats[user_id],n=1,temperature = temperature,stream = False)
             if debug_to_chat:
                 await context.bot.send_message(chat_id=update.effective_chat.id, text='Got response from API!')
 
@@ -287,8 +305,7 @@ async def file_function(update: Update, context: ContextTypes.DEFAULT_TYPE):
             time.sleep(time_to_wait)
             time_to_wait = time_to_wait*2
         except openai.APIError as e:
-            print(e.message)
-            print('API timeout error, trying again')
+            print(f'API error: {e}, trying again')
             if debug_to_chat:
                 await context.bot.send_message(chat_id=update.effective_chat.id, text='API timeout error, trying again')
             time.sleep(time_to_wait)
@@ -348,59 +365,11 @@ def num_tokens_from_messages(messages, model="gpt-3.5-turbo-0613"):
     return num_tokens
 
 
-# def num_tokens_from_messages(messages, model="gpt-3.5-turbo-0613"):
-#     """Return the number of tokens used by a list of messages."""
-#     try:
-#         print(f'getting encoding for model: {model}...')
-#         encoding = tiktoken.encoding_for_model(model)
-#     except KeyError:
-#         print("Warning: model not found. Using cl100k_base encoding.")
-#         encoding = tiktoken.get_encoding("cl100k_base")
-#     if model in {
-#         "gpt-3.5-turbo-0613",
-#         "gpt-3.5-turbo-16k-0613",
-#         "gpt-4-0314",
-#         "gpt-4-32k-0314",
-#         "gpt-4-0613",
-#         "gpt-4-32k-0613",
-#         "gpt-4-1106-preview",
-#         # "gpt-4-turbo",
-#         }:
-#         tokens_per_message = 3
-#         tokens_per_name = 1
-#     elif model == "gpt-3.5-turbo-0301":
-#         tokens_per_message = 4  # every message follows <|start|>{role/name}\n{content}<|end|>\n
-#         tokens_per_name = -1  # if there's a name, the role is omitted
-#     elif "gpt-3.5-turbo" in model:
-#         print("Warning: gpt-3.5-turbo may update over time. Returning num tokens assuming gpt-3.5-turbo-0613.")
-#         return num_tokens_from_messages(messages, model="gpt-3.5-turbo-0613")
-#     elif "gpt-4" in model:
-#         print("Warning: gpt-4 may update over time. Returning num tokens assuming gpt-4-0613.")
-#         return num_tokens_from_messages(messages, model="gpt-4-0613")
-#     else:
-#         raise NotImplementedError(
-#             f"""num_tokens_from_messages() is not implemented for model {model}. See https://github.com/openai/openai-python/blob/main/chatml.md for information on how messages are converted to tokens."""
-#         )
-#     num_tokens = 0
-#     for message in messages:
-#         num_tokens += tokens_per_message
-#         if isinstance(message, tuple):
-#             # print('tuple message',message)
-#             # continue
-#             message = message[0]
-#         if isinstance(message, dict):
-#             for key, value in message.items():
-#                 num_tokens += len(encoding.encode(value))
-#                 if key == "name":
-#                     num_tokens += tokens_per_name
-#         # elif isinstance(message, list):
-#         #     for value in message:
-#         #         num_tokens += len(encoding.encode(value))
-#     num_tokens += 3  # every reply is primed with <|start|>assistant<|message|>
-#     return num_tokens
-
 
 def transcribe(mp3_filename):
+    # make sure that file exists
+    if not os.path.exists(mp3_filename):
+        raise FileNotFoundError(f"File {mp3_filename} not found. Make sure that ffmpeg is installed and in the system path.") from None
     file_stats = os.stat(mp3_filename)
     print(file_stats.st_size, type(file_stats.st_size))
     if file_stats.st_size >= 25*1024*1024:
@@ -449,7 +418,12 @@ async def voice_function(update: Update, context: ContextTypes.DEFAULT_TYPE):
     voice_file = await context.bot.get_file(fid)
     path = user_id+'_chatbot.opus'
     await voice_file.download_to_drive(custom_path=path)
-    os.system('ffmpeg -i '+path+' -ac 2 -b:a 192k '+user_id+'_chatbot.mp3')
+    try:
+        os.system('ffmpeg -i '+path+' -ac 2 -b:a 192k '+user_id+'_chatbot.mp3')
+    except Exception as e:
+        print('error converting voice file: ',e)
+        await context.bot.send_message(chat_id=update.effective_chat.id, text='Error converting voice message to text')
+        return
     # s = transcribe('chatbot_voice_message_file.mp3')
     s = transcribe(user_id+'_chatbot.mp3')
 
@@ -488,7 +462,7 @@ async def voice_function(update: Update, context: ContextTypes.DEFAULT_TYPE):
     while True:
         try:
             gpt_response = client.chat.completions.create(
-                model=gpt_model,
+                model=default_gpt_model,
                 messages=chats[user_id],
                 n=1,
                 temperature = temperature,
@@ -549,9 +523,8 @@ async def text_function(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # print(update.effective_user.id)
     # chat_id = update.effective_chat.id
     user_id = str(update.effective_user.id)
-    print(f'user id: {user_id}  type: {type(user_id)}')
+    print(f'Got text message: {update.message.text} from user id: {user_id}')
 
-    print(f'Chat id: {user_id} User: {update.message.text}')
     message_to_append = {
         'role': 'user',
         'content': update.message.text
@@ -559,25 +532,25 @@ async def text_function(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not user_id in chats:
         chats.update({user_id: [system_message]})
     chats[user_id].append(message_to_append)
+    print('chat dict:')
+    pprint.pprint(chats)
 
-        # chats.update({chat_id: [message_to_append]})
-    # message_list.append(message_to_append)
-    try:
-        tokens = num_tokens_from_messages(chats[user_id], gpt_model)
-        print(f'Chat id: {user_id} Chat length: {len(chats[user_id])}, Tokens: {tokens}')
-    except Exception as e:
-        print('error getting tokens: ',e)
-        tokens = 0
-    if debug_to_chat:
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=f'Got Message! Chat length: {len(chats[user_id])}, Tokens: {tokens}')
-    if tokens>50000:
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=f'Warning, close to max tokens. Tokens: {tokens}')
+    # try:
+    #     tokens = num_tokens_from_messages(chats[user_id], default_gpt_model)
+    #     print(f'Chat id: {user_id} Chat length: {len(chats[user_id])}, Tokens: {tokens}')
+    # except Exception as e:
+    #     print('error getting tokens: ',e)
+    #     tokens = 0
+    # if debug_to_chat:
+    #     await context.bot.send_message(chat_id=update.effective_chat.id, text=f'Got Message! Chat length: {len(chats[user_id])}, Tokens: {tokens}')
+    # if tokens>50000:
+    #     await context.bot.send_message(chat_id=update.effective_chat.id, text=f'Warning, close to max tokens. Tokens: {tokens}')
 
     gpt_response = ''
     time_to_wait = 1
     while True:
         try:
-            gpt_response = client.chat.completions.create(model=gpt_model,messages=chats[user_id],n=1,temperature = temperature,stream = False)
+            gpt_response = client.chat.completions.create(model=default_gpt_model,messages=chats[user_id],n=1,temperature = temperature,stream = False)
             if debug_to_chat:
                 await context.bot.send_message(chat_id=update.effective_chat.id, text='Got response from API!')
 
@@ -592,7 +565,7 @@ async def text_function(update: Update, context: ContextTypes.DEFAULT_TYPE):
             time_to_wait = time_to_wait*2
         except openai.APIError as e:
             # print(e.message)
-            print('API timeout error, trying again')
+            print(f'API error: {e}, trying again')
             if debug_to_chat:
                 await context.bot.send_message(chat_id=update.effective_chat.id, text='API timeout error, trying again')
             time.sleep(time_to_wait)

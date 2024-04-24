@@ -1,0 +1,5 @@
+In this directory include two text files:
+1. open_api_key containing the API key from OpenAI
+2. telegram_api_token containing the API token for your Telegram bot
+
+See the README for more information on how to get these keys.

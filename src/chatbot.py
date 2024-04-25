@@ -72,7 +72,6 @@ def transcribe_mp3_to_text(mp3_filename: str, client: openai.OpenAI) -> Tuple[st
         return '', False
     # check file size to make sure it fits within the OpenAI API limit of 25MB
     file_stats = os.stat(mp3_filename)
-    print(file_stats.st_size, type(file_stats.st_size))
     if file_stats.st_size >= 25*1024*1024:
         # file size too big, return a coherent error message and False for success
         print(f'File size is {file_stats.st_size} bytes. File is too big for OpenAI API. Returning an error message as output.')
@@ -193,7 +192,6 @@ def interact_with_gpt_model(client: openai.OpenAI, conversation: list, model:str
             )
             gpt_response = gpt_response.choices[0].message.content
             success = True
-            print('GPT: '+gpt_response)
             break
         except openai.RateLimitError as e:
             error_message =+ f'rate limit error: {e}; '
@@ -294,7 +292,6 @@ async def voice_message_handle_function(update: Update, context: ContextTypes.DE
         return
     # if success, continue
     await context.bot.send_message(chat_id=update.effective_chat.id, text='transcripted voice message:\n'+s, parse_mode='Markdown')
-    print('transcripted voice message:\n'+s)
     try:
         os.remove(user_id+'_chatbot_audio_file.mp3')
         os.remove(user_id+'_chatbot_audio_file.opus')

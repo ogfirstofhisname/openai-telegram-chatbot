@@ -2,29 +2,25 @@
 A script that implements a chatbot using the OpenAI API and the Telegram API.
 The script's error handling policy is to crash on setup errors, and to keep running on runtime errors while informing the chat user.
 The script uses the OpenAI API to interact with the GPT-4 model, and the Telegram API to interact with the chat users.
+
 See the README.md file for more information on how to set up the API keys and tokens.
 '''
 
 
 ### CHATBOT PARAMETERS - edit according to your use case ###
 ############################################################
-
 default_gpt_model = 'gpt-4-turbo'  # as of April 2024, the most capable LLM in the world + vision capabilities
 temperature = 0.5  # set to higher for more creative responses or lower for more deterministic output
 api_retry_time = 60 # max time to retry the OpenAI API in case of timeout
 
 
-
 ### Imports ###
 ###############
-import os, sys, time
-from telegram import Update, Message, Audio, Voice, File, Bot
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, Application
-from telegram.ext import ContextTypes, CallbackContext
-from telegram.ext import filters
+import os, time
 from typing import Tuple
+from telegram import Update
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
 import openai
-
 
 
 ### Main ###
@@ -225,13 +221,10 @@ def init_conversation_and_system_message(context: ContextTypes.DEFAULT_TYPE,):
         # add the system message to the conversation
         context.user_data['conversation'].append(system_message_dict)
 
+
 ### Async handler functions ###
 ###############################
 async def text_message_handle_function(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    client = context.bot_data['client']
-    # system_message_dict = context.bot_data['system_message_dict']
-    print(f'Got text message: {update.message.text} from user id: {update.effective_user.id}') # TODO remove for user privacy
-
     message_dict_to_append = {
         'role': 'user',
         'content': update.message.text
@@ -244,7 +237,7 @@ async def text_message_handle_function(update: Update, context: ContextTypes.DEF
     context.user_data['conversation'].append(message_dict_to_append)
 
     ### interact with the GPT model
-    gpt_response = interact_with_gpt_model(client, context.user_data['conversation'], model=default_gpt_model, temperature=temperature)
+    gpt_response = interact_with_gpt_model(context.bot_data['client'], context.user_data['conversation'], model=default_gpt_model, temperature=temperature)
 
     # send the response to the user
     await context.bot.send_message(chat_id=update.effective_chat.id, text=gpt_response, parse_mode='Markdown')
@@ -257,12 +250,9 @@ async def text_message_handle_function(update: Update, context: ContextTypes.DEF
     context.user_data['conversation'].append(message_dict_to_append)
 
 async def start_restart_command_handle_function(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    print(f'Got start/restart command from user id: {update.effective_user.id}') # TODO remove for user privacy
     context.user_data['conversation'] = []
 
 async def voice_message_handle_function(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    client = context.bot_data['client']
-    print(f'Got voice message from user id: {update.effective_user.id}') # TODO remove for user privacy
     user_id = str(update.effective_user.id)
 
     # make sure the conversation is initialized and the system message is added
@@ -270,11 +260,11 @@ async def voice_message_handle_function(update: Update, context: ContextTypes.DE
 
     # make sure previous audio files are deleted
     try:
-        os.remove(user_id+'_chatbot.mp3')
+        os.remove(user_id+'_chatbot_audio_file.mp3')
     except Exception as e:
         pass
     try:
-        os.remove(user_id+'_chatbot.opus')
+        os.remove(user_id+'_chatbot_audio_file.opus')
     except Exception as e:
         pass
 
@@ -282,7 +272,7 @@ async def voice_message_handle_function(update: Update, context: ContextTypes.DE
     try:
         fid = update.message.voice.file_id
         voice_file = await context.bot.get_file(fid)
-        path = user_id+'_chatbot.opus'
+        path = user_id+'_chatbot_audio_file.opus'
         await voice_file.download_to_drive(custom_path=path)
     except Exception as e:
         print('error downloading voice file: ',e)
@@ -291,14 +281,14 @@ async def voice_message_handle_function(update: Update, context: ContextTypes.DE
 
     ### convert the voice message to mp3
     try:
-        os.system('ffmpeg -i '+path+' -ac 2 -b:a 192k '+user_id+'_chatbot.mp3')
+        os.system('ffmpeg -i '+path+' -ac 2 -b:a 192k '+user_id+'_chatbot_audio_file.mp3')
     except Exception as e:
         print('error converting voice file: ',e)
         await context.bot.send_message(chat_id=update.effective_chat.id, text=f'Error transcripting voice message, encountered an error while converting the audio file: {e}')
         return
     
     ### transcribe the mp3 file to text
-    s, success = transcribe_mp3_to_text(user_id+'_chatbot.mp3', client)
+    s, success = transcribe_mp3_to_text(user_id+'_chatbot_audio_file.mp3', client)
     if not success:
         await context.bot.send_message(chat_id=update.effective_chat.id, text=s)
         return
@@ -306,8 +296,8 @@ async def voice_message_handle_function(update: Update, context: ContextTypes.DE
     await context.bot.send_message(chat_id=update.effective_chat.id, text='transcripted voice message:\n'+s, parse_mode='Markdown')
     print('transcripted voice message:\n'+s)
     try:
-        os.remove(user_id+'_chatbot.mp3')
-        os.remove(user_id+'_chatbot.opus')
+        os.remove(user_id+'_chatbot_audio_file.mp3')
+        os.remove(user_id+'_chatbot_audio_file.opus')
     except Exception as e:
         pass
     
@@ -319,7 +309,7 @@ async def voice_message_handle_function(update: Update, context: ContextTypes.DE
     context.user_data['conversation'].append(message_to_append)
 
     ### interact with the GPT model
-    gpt_response = interact_with_gpt_model(client, context.user_data['conversation'], model=default_gpt_model, temperature=temperature)
+    gpt_response = interact_with_gpt_model(context.bot_data['client'], context.user_data['conversation'], model=default_gpt_model, temperature=temperature)
 
     # send the response to the user
     await context.bot.send_message(chat_id=update.effective_chat.id, text=gpt_response, parse_mode='Markdown')
@@ -331,11 +321,65 @@ async def voice_message_handle_function(update: Update, context: ContextTypes.DE
     }
     context.user_data['conversation'].append(message_dict_to_append)
 
-
-
 async def text_file_handle_function(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chats = context.application.context_data['chats']
-    client = context.application.context_data['client']
+    user_id = str(update.effective_user.id)
+
+    # make sure there are no previous attachment files
+    try:
+        os.remove(user_id+'_chatbot_text_file')
+    except Exception:
+        pass
+
+    # make sure the conversation is initialized and the system message is added
+    init_conversation_and_system_message(context)
+
+    # download the file
+    try:
+        fid = update.message.document.file_id
+        doc_file = await context.bot.get_file(fid)
+        path = user_id+'_chatbot_text_file'
+        await doc_file.download_to_drive(custom_path=path)
+    except Exception as e:
+        print('error downloading file: ',e)
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=f'Error processing file, encountered an error while downloading the file: {e}')
+        return
+    
+    # try to read the file into a string
+    try:
+        with open(path, 'r') as file:
+            s = file.read()
+    except Exception as e:
+        print('error reading file: ',e)
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=f'Error processing file, encountered an error while reading the file: {e}')
+        return
+    
+    # append the attachment caption to the conversation, if it exists, and append the entire text to the conversation
+    if update.message.caption:
+        s =  update.message.caption + '\n' + s
+    message_to_append = {
+        'role': 'user',
+        'content': s
+    }
+    context.user_data['conversation'].append(message_to_append)
+
+    ### interact with the GPT model
+    gpt_response = interact_with_gpt_model(context.bot_data['client'], context.user_data['conversation'], model=default_gpt_model, temperature=temperature)
+
+    # send the response to the user
+    await context.bot.send_message(chat_id=update.effective_chat.id, text=gpt_response, parse_mode='Markdown')
+
+    # append the response to the chat
+    message_dict_to_append = {
+        'role': 'assistant',
+        'content': gpt_response
+    }
+    context.user_data['conversation'].append(message_dict_to_append)
+
+    # remove the file
+    try:
+        os.remove(user_id+'_chatbot_text_file')
+    except Exception:
+        pass
 
 async def image_file_handle_function(update: Update, context: ContextTypes.DEFAULT_TYPE):
     '''
@@ -362,8 +406,48 @@ async def image_file_handle_function(update: Update, context: ContextTypes.DEFAU
     max_tokens=300,
     )
     '''
-    chats = context.application.context_data['chats']
-    client = context.application.context_data['client']
+    # make sure the conversation is initialized and the system message is added
+    init_conversation_and_system_message(context)
+
+    # get the image file's url
+    fid = update.message.photo[-1].file_id
+    image_file = await context.bot.get_file(fid)
+    image_url = str(image_file.file_path)
+
+    # append the image caption to the conversation, if it exists
+    s =  update.message.caption
+    if s is None:
+        s = ''
+    message_to_append={
+        "role": "user",
+        "content": [
+            {"type": "text", "text": s},
+            # {"type": "text", "text": "What’s in this image?"},
+            {
+                "type": "image_url",
+                "image_url": {
+                    "url": image_url,
+                },
+            },
+        ],
+    }
+    context.user_data['conversation'].append(message_to_append)
+
+    ### interact with the GPT model
+    gpt_response = interact_with_gpt_model(context.bot_data['client'], context.user_data['conversation'], model=default_gpt_model, temperature=temperature)
+
+    # send the response to the user
+    await context.bot.send_message(chat_id=update.effective_chat.id, text=gpt_response, parse_mode='Markdown')
+
+    # append the response to the chat
+    message_dict_to_append = {
+        'role': 'assistant',
+        'content': gpt_response
+    }
+    context.user_data['conversation'].append(message_dict_to_append)
+
+
+
 
 
 if __name__ == '__main__':

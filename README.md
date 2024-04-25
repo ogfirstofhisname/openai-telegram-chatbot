@@ -53,4 +53,4 @@ To apply your own system prompt, create a file named `system_prompt' (no extensi
 Learn more about OpenAI's system prompts [here](https://platform.openai.com/docs/guides/prompt-engineering/six-strategies-for-getting-better-results).
 
 ## Running the project
-To run the project, simply run `python .\src\chatbot.py` (in Windows) in the project's root directory. If you are using a virtual environment, make sure it is activated.
+To run the project, simply run ```powershell python src\chatbot.py``` (in Windows Powershell) or ```bash python src/chatbot.py``` (in Linux terminal) in the project's root directory. If you are using a virtual environment, make sure it is activated.

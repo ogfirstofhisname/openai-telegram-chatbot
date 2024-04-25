@@ -29,6 +29,7 @@ Optionally, you can also define the system prompt for the GPT model in the /file
 2. Make sure you have Python installed (version 3.10 or later).
 3. (Optional) Create a virtual environment by running `python -m venv venv` in the project's root directory.
 4. Install the required packages by running `pip install -r requirements.txt` in the project's root directory. If you are using a virtual environment, make sure it is activated.
+5. Download and install ffmpeg from [here](https://ffmpeg.org/download.html) and add the install directory to your system PATH. This is required for processing voice messages.
 
 Now proceed to the next steps to set up the OpenAI API key and the Telegram bot token.
 

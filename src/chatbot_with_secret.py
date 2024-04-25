@@ -111,9 +111,7 @@ async def image_function(update: Update, context: ContextTypes.DEFAULT_TYPE):
     '''
     Handles image messages by using the openai vision API to generate a description of the image.
     from openai import OpenAI.
-    API snippet:
-
-    client = OpenAI()
+    API snippet from openai.com:
 
     response = client.chat.completions.create(
     model="gpt-4-turbo",
@@ -133,8 +131,6 @@ async def image_function(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ],
     max_tokens=300,
     )
-
-    print(response.choices[0])
     '''
     user_id = str(update.effective_user.id)
     # save the attachment to a temp file

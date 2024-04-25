@@ -162,3 +162,4 @@ cython_debug/
 # key and token files
 src/files/openai_api_key
 src/files/telegram_api_token
+src/files/system_prompt

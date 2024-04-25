@@ -52,4 +52,4 @@ To apply your own system prompt, create a file named `system_prompt' (no extensi
 Learn more about OpenAI's system prompts [here](https://platform.openai.com/docs/guides/prompt-engineering/six-strategies-for-getting-better-results).
 
 ## Running the project
-To run the project, simply run `python chatbot.py` in the project's root directory.
+To run the project, simply run `python chatbot.py` in the project's root directory. If you are using a virtual environment, make sure it is activated.

@@ -288,7 +288,7 @@ async def voice_message_handle_function(update: Update, context: ContextTypes.DE
         return
     
     ### transcribe the mp3 file to text
-    s, success = transcribe_mp3_to_text(user_id+'_chatbot_audio_file.mp3', client)
+    s, success = transcribe_mp3_to_text(user_id+'_chatbot_audio_file.mp3', context.bot_data['client'])
     if not success:
         await context.bot.send_message(chat_id=update.effective_chat.id, text=s)
         return

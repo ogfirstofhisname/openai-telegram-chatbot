@@ -50,3 +50,6 @@ The system prompt (typically 10-1000 words long) is where you can adjust the beh
 To apply your own system prompt, create a file named `system_prompt' (no extension) in the project's /files subdirectory and paste the system prompt into it.
 
 Learn more about OpenAI's system prompts [here](https://platform.openai.com/docs/guides/prompt-engineering/six-strategies-for-getting-better-results).
+
+## Running the project
+To run the project, simply run `python chatbot.py` in the project's root directory.

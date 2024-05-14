@@ -9,7 +9,7 @@ See the README.md file for more information on how to set up the API keys and to
 
 ### CHATBOT PARAMETERS - edit according to your use case ###
 ############################################################
-default_gpt_model = 'gpt-4-turbo'  # as of April 2024, the most capable LLM in the world + vision capabilities
+default_gpt_model = 'gpt-4o'  # as of April 2024, the most capable LLM in the world + vision capabilities
 temperature = 0.5  # set to higher for more creative responses or lower for more deterministic output
 api_retry_time = 60 # max time to retry the OpenAI API in case of timeout
 

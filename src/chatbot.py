@@ -1,7 +1,7 @@
 '''
 A script that implements a chatbot using the OpenAI API and the Telegram API.
 The script's error handling policy is to crash on setup errors, and to keep running on runtime errors while informing the chat user.
-The script uses the OpenAI API to interact with the GPT-4 model, and the Telegram API to interact with the chat users.
+The script uses the OpenAI API to interact with the GPT-4o model, and the Telegram API to interact with the chat users.
 
 See the README.md file for more information on how to set up the API keys and tokens.
 '''

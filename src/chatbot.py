@@ -10,6 +10,7 @@ See the README.md file for more information on how to set up the API keys and to
 ### CHATBOT PARAMETERS - edit according to your use case ###
 ############################################################
 default_gpt_model = 'gpt-4o'  # as of May 2024, the most capable LLM in the world + vision capabilities
+# default_gpt_model = 'o1-preview'
 temperature = 0.5  # set to higher for more creative responses or lower for more deterministic output
 api_retry_time = 60 # max time to retry the OpenAI API in case of timeout
 
@@ -183,13 +184,21 @@ def interact_with_gpt_model(client: openai.OpenAI, conversation: list, model:str
     error_message = ''
     while True and time.time()-t0 < api_retry_time:
         try:
-            gpt_response = client.chat.completions.create(
-                model=model,
-                messages=conversation,
-                n=1,
-                temperature = temperature,
-                stream = False
-            )
+            if not model == 'o1-preview':
+                gpt_response = client.chat.completions.create(
+                    model=model,
+                    messages=conversation,
+                    n=1,
+                    temperature = temperature,
+                    stream = False
+                )
+            else:
+                gpt_response = client.chat.completions.create(
+                    model=model,
+                    messages=conversation,
+                    n=1,
+                    stream = False
+                )
             gpt_response = gpt_response.choices[0].message.content
             success = True
             break
@@ -216,8 +225,9 @@ def init_conversation_and_system_message(context: ContextTypes.DEFAULT_TYPE,):
         # initialize the conversation list in the user_data
         context.user_data.update({'conversation': []})
     if len(context.user_data['conversation']) == 0:
+        if not default_gpt_model == 'o1-preview':
         # add the system message to the conversation
-        context.user_data['conversation'].append(system_message_dict)
+            context.user_data['conversation'].append(system_message_dict)
 
 
 ### Async handler functions ###

@@ -2,4 +2,5 @@ In this directory include at least two text files:
 1. open_api_key containing the API key from OpenAI
 2. telegram_api_token containing the API token for your Telegram bot
 3. (optional) system_prompt containing the system prompt for the GPT model. If the prompt contains TEMPERATURE_VAL, it will be replaced with the temperature value.
+4. (optional) allowed_ids containing the list of Telegram user IDs that are allowed to use the bot. If this file is not present, all users are allowed to use the bot.
 See the README for more information on how to get these keys.

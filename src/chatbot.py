@@ -31,13 +31,17 @@ def main():
     API_TOKEN = get_telegram_api_token()
     OPENAI_KEY = get_openai_key()
     system_message_dict = get_system_message_dict()
+    allowed_ids = get_allowed_ids()
 
     ### Initialize OpenAI client
+    # client = openai.OpenAI(api_key=OPENAI_KEY)
     client = openai.OpenAI(api_key=OPENAI_KEY)
+
 
     ### Initialize the Telegram bot
     application = ApplicationBuilder().token(API_TOKEN).build()
     application.bot_data.update({'client': client, 'system_message_dict': system_message_dict})
+    application.bot_data.update({'allowed_ids': allowed_ids})
 
     start_handler = CommandHandler('start', start_restart_command_handle_function)
     restart_handler = CommandHandler('restart', start_restart_command_handle_function)
@@ -122,6 +126,7 @@ def get_system_message_dict(system_prompt_file:str='./files/system_prompt', temp
             'role': 'system',
             'content': system_message
         }
+    print(f'got system message, length: {len(system_message)}')
     return system_message_dict
 
 def get_openai_key(openai_api_key_file:str='./files/openai_api_key') -> str:
@@ -141,6 +146,7 @@ def get_openai_key(openai_api_key_file:str='./files/openai_api_key') -> str:
     # read the key from the file
     with open(openai_api_key_file) as file:
         OPENAI_KEY = file.readline()
+    print(f'got OpenAI key, length: {len(OPENAI_KEY)}')
     return OPENAI_KEY
 
 def get_telegram_api_token(telegram_api_token_file:str='./files/telegram_api_token') -> str:
@@ -160,7 +166,47 @@ def get_telegram_api_token(telegram_api_token_file:str='./files/telegram_api_tok
     # read the token from the file
     with open(telegram_api_token_file) as file:
         API_TOKEN = file.readline()
+    print(f'got API token, length: {len(API_TOKEN)}')
     return API_TOKEN
+
+def get_allowed_ids(allowed_ids_file:str='./files/allowed_ids') -> list:
+    '''
+    Reads the allowed chat user IDs from a file and returns them as a list of strings.
+    The allowed IDs file should be a text file with the allowed chat user IDs, one per line.
+
+    Args:
+    allowed_ids_file (str): the path to the allowed IDs file, defaults to './files/allowed_ids'
+
+    Returns:
+    allowed_ids (list): a list of allowed chat user IDs as strings
+    '''
+    # get path to directory of current script and join with file name
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+    allowed_ids_file = os.path.join(dir_path, allowed_ids_file)
+
+    # check if the file exists. If not, return an empty list
+    if not os.path.exists(allowed_ids_file):
+        print(f'Allowed IDs file not found at {allowed_ids_file}.')
+        return []
+    # read the allowed IDs from the file
+    try:
+        with open(allowed_ids_file) as file:
+            allowed_ids = file.readlines()
+            allowed_ids = [x.strip() for x in allowed_ids]
+        # verify that the IDs are all strings
+        allowed_ids = [x for x in allowed_ids if isinstance(x, str)]
+        # verify that the IDs are all non-empty
+        allowed_ids = [x for x in allowed_ids if len(x) > 0]
+        # verify that the IDs are all numeric
+        allowed_ids = [x for x in allowed_ids if x.isnumeric()]
+        # verify that the IDs are all positive
+        allowed_ids = [x for x in allowed_ids if int(x) > 0]
+        print(f'got allowed IDs, length: {len(allowed_ids)}')
+        return allowed_ids
+    except Exception as e:
+        print(f'Error reading allowed IDs file: {e}')
+        return []
+
 
 def interact_with_gpt_model(client: openai.OpenAI, conversation: list, model:str=default_gpt_model, temperature:float=0.5) -> str:
     '''
@@ -227,7 +273,13 @@ async def text_message_handle_function(update: Update, context: ContextTypes.DEF
         'role': 'user',
         'content': update.message.text
     }
-
+    # get the user ID
+    user_id = str(update.effective_user.id)
+    # if the user is not in the allowed IDs list, print an error and return
+    if not user_id in context.bot_data['allowed_ids'] and len(context.bot_data['allowed_ids']) > 0:
+        text = f'You are not authorized to use this chatbot. Your user ID is {user_id}.'
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=text)
+        return
     # make sure the conversation is initialized and the system message is added
     init_conversation_and_system_message(context)
 
@@ -248,6 +300,12 @@ async def text_message_handle_function(update: Update, context: ContextTypes.DEF
     context.user_data['conversation'].append(message_dict_to_append)
 
 async def start_restart_command_handle_function(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # check if the user is in the allowed IDs list. If not, print an error and return
+    user_id = str(update.effective_user.id)
+    if not user_id in context.bot_data['allowed_ids'] and len(context.bot_data['allowed_ids']) > 0:
+        text = f'You are not authorized to use this chatbot. Your user ID is {user_id}.'
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=text)
+        return
     context.user_data['conversation'] = []
 
 async def voice_message_handle_function(update: Update, context: ContextTypes.DEFAULT_TYPE):

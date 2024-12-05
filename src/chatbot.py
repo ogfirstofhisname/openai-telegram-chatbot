@@ -143,6 +143,7 @@ def get_openai_key(openai_api_key_file:str='./files/openai_api_key') -> str:
     # get path to directory of current script and join with file name
     dir_path = os.path.dirname(os.path.realpath(__file__))
     openai_api_key_file = os.path.join(dir_path, openai_api_key_file)
+    print(f'looking for OpenAI key file at {openai_api_key_file}')
     # read the key from the file
     with open(openai_api_key_file) as file:
         OPENAI_KEY = file.readline()
@@ -163,6 +164,7 @@ def get_telegram_api_token(telegram_api_token_file:str='./files/telegram_api_tok
     # get path to directory of current script and join with file name
     dir_path = os.path.dirname(os.path.realpath(__file__))
     telegram_api_token_file = os.path.join(dir_path, telegram_api_token_file)
+    print(f'looking for API token file at {telegram_api_token_file}')
     # read the token from the file
     with open(telegram_api_token_file) as file:
         API_TOKEN = file.readline()
@@ -180,10 +182,10 @@ def get_allowed_ids(allowed_ids_file:str='./files/allowed_ids') -> list:
     Returns:
     allowed_ids (list): a list of allowed chat user IDs as strings
     '''
-    # get path to directory of current script and join with file name
+    # get path to directory of current script and join with file name.
     dir_path = os.path.dirname(os.path.realpath(__file__))
     allowed_ids_file = os.path.join(dir_path, allowed_ids_file)
-
+    print(f'looking for allowed IDs file at {allowed_ids_file}')
     # check if the file exists. If not, return an empty list
     if not os.path.exists(allowed_ids_file):
         print(f'Allowed IDs file not found at {allowed_ids_file}.')

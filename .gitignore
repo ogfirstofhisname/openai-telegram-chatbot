@@ -163,3 +163,4 @@ cython_debug/
 src/files/openai_api_key
 src/files/telegram_api_token
 src/files/system_prompt
+src/files/allowed_ids
